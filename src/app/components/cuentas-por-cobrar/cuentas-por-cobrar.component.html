@@ -1,0 +1,428 @@
+<div class="p-4 sm:p-6 max-w-7xl mx-auto">
+
+  <!-- Header -->
+  <div class="mb-6 flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-xl font-bold text-slate-900">Cuentas por cobrar</h1>
+      <p class="text-sm text-slate-500 mt-0.5">
+        Facturas con saldo pendiente y su historial de abonos.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Filters ──────────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-5 flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Receptor</label>
+      <select
+        id="filtro-receptor"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700
+               focus:outline-none focus:ring-2 focus:ring-indigo-400 w-full sm:w-auto sm:min-w-[220px] sm:max-w-xs"
+        [value]="filterReceptor()"
+        (change)="onReceptorInput($event)">
+        <option value="">Todos</option>
+        @for (c of clientes(); track c.id) {
+          <option [value]="c.id">{{ c.nombre }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</label>
+      <select
+        id="filtro-estado"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700
+               focus:outline-none focus:ring-2 focus:ring-indigo-400 w-full sm:w-auto sm:min-w-[140px]"
+        [value]="filterEstado()"
+        (change)="onEstadoInput($event)">
+        <option value="">Todos</option>
+        @for (e of estados; track e.clave) {
+          <option [value]="e.clave">{{ e.descripcion }}</option>
+        }
+      </select>
+    </div>
+
+    <button
+      id="btn-filtrar"
+      (click)="loadCuentas()"
+      class="inline-flex items-center justify-center gap-2 px-4 py-2 sm:py-1.5 rounded-lg text-sm font-semibold
+             w-full sm:w-auto bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+      <lucide-icon name="funnel" [size]="16"></lucide-icon>
+      Filtrar
+    </button>
+
+    <!-- Refresh forzado — bypasses cache -->
+    <button
+      (click)="loadCuentas(true)"
+      [disabled]="loading()"
+      title="Recargar desde el servidor"
+      class="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg text-sm font-medium
+             w-full sm:w-auto border border-slate-300 bg-white text-slate-600 hover:bg-slate-50
+             disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+      <lucide-icon name="refresh-cw" [size]="16" [class.animate-spin]="loading()"></lucide-icon>
+      Actualizar
+    </button>
+
+    @if (filterReceptor() || filterEstado()) {
+      <button
+        (click)="clearFilters()"
+        class="text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2 transition-colors
+               w-full sm:w-auto py-1">
+        Limpiar filtros
+      </button>
+    }
+  </div>
+
+  <!-- Una columna bajo lg; listado + detalle lado a lado en desktop -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+
+    <!-- ── Listado ────────────────────────────────────────────────────────── -->
+    <div class="min-w-0 {{ selectedId() ? 'lg:col-span-2' : 'lg:col-span-3' }}">
+
+      <!-- ── Loading ────────────────────────────────────────────────────── -->
+      @if (loading()) {
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 flex flex-col items-center gap-3">
+          <svg class="w-7 h-7 text-indigo-400 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <p class="text-sm text-slate-500">Cargando cuentas por cobrar…</p>
+        </div>
+      }
+
+      <!-- ── Error ──────────────────────────────────────────────────────── -->
+      @if (!loading() && error()) {
+        <div id="cxc-error" class="bg-red-50 border border-red-200 rounded-2xl p-6 flex items-center gap-3 text-sm text-red-700">
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          {{ error() }}
+        </div>
+      }
+
+      <!-- ── Empty ──────────────────────────────────────────────────────── -->
+      @if (!loading() && !error() && cuentas().length === 0) {
+        <div id="cxc-vacio" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 flex flex-col items-center gap-3 text-center">
+          <lucide-icon name="wallet" [size]="40" class="text-slate-300"></lucide-icon>
+          <p class="text-sm font-semibold text-slate-500">Sin cuentas por cobrar
+            @if (filterReceptor() || filterEstado()) { con los filtros seleccionados }
+          </p>
+          <p class="text-xs text-slate-400">
+            Las facturas con saldo pendiente aparecerán aquí en cuanto las timbres.
+          </p>
+        </div>
+      }
+
+      <!-- ── Table ──────────────────────────────────────────────────────── -->
+      @if (!loading() && !error() && cuentas().length > 0) {
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+
+          <!-- Summary bar -->
+          <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <p class="text-xs text-slate-500">
+              <span class="font-semibold text-slate-700">{{ cuentas().length }}</span>
+              cuenta{{ cuentas().length !== 1 ? 's' : '' }}
+            </p>
+          </div>
+
+          <!-- Scroll propio (horizontal y vertical) -->
+          <div class="overflow-auto max-h-[65vh]">
+            <table class="w-full text-sm">
+              <thead class="sticky top-0 z-10">
+                <tr class="bg-slate-50 border-b border-slate-200">
+                  <th class="text-left px-3 sm:px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Receptor</th>
+                  <th class="text-left px-3 sm:px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Serie / Folio</th>
+                  <th class="text-left px-3 sm:px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">UUID</th>
+                  <th class="text-left px-3 sm:px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Emisión</th>
+                  <th class="text-right px-3 sm:px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</th>
+                  <th class="text-right px-3 sm:px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Saldo pendiente</th>
+                  <th class="text-center px-3 sm:px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide" title="Número de parcialidades">Parc.</th>
+                  <th class="text-left px-3 sm:px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
+                  <th class="text-center px-3 sm:px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Detalle</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (c of cuentas(); track c.id) {
+                  <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                      [class.bg-indigo-50]="selectedId() === c.id">
+
+                    <!-- Receptor -->
+                    <td class="px-3 sm:px-4 py-3 max-w-[12rem]">
+                      <p class="font-medium text-slate-800 leading-tight truncate">{{ c.nombreReceptor ?? '—' }}</p>
+                      <p class="font-mono text-xs text-slate-400">{{ c.rfcReceptor }}</p>
+                    </td>
+
+                    <!-- Serie / Folio -->
+                    <td class="px-3 sm:px-4 py-3 text-xs text-slate-700 whitespace-nowrap">
+                      {{ serieFolio(c) }}
+                    </td>
+
+                    <!-- UUID -->
+                    <td class="px-3 sm:px-4 py-3">
+                      @if (c.uuid) {
+                        <span class="font-mono text-xs text-slate-700 select-all" title="{{ c.uuid }}">
+                          {{ c.uuid.substring(0, 8) }}…
+                        </span>
+                      } @else {
+                        <span class="text-slate-400 text-xs">—</span>
+                      }
+                    </td>
+
+                    <!-- Fecha de emisión -->
+                    <td class="px-3 sm:px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
+                      {{ formatDate(c.fechaEmision) }}
+                    </td>
+
+                    <!-- Total -->
+                    <td class="px-3 sm:px-4 py-3 text-right text-slate-600 whitespace-nowrap text-xs sm:text-sm">
+                      {{ formatCurrency(c.total) }}
+                    </td>
+
+                    <!-- Saldo pendiente -->
+                    <td class="px-3 sm:px-4 py-3 text-right font-semibold text-slate-800 whitespace-nowrap text-xs sm:text-sm">
+                      {{ formatCurrency(c.saldoPendiente) }}
+                    </td>
+
+                    <!-- # Parcialidades -->
+                    <td class="px-3 sm:px-4 py-3 text-center text-xs text-slate-600">
+                      {{ c.numParcialidades }}
+                    </td>
+
+                    <!-- Estado -->
+                    <td class="px-3 sm:px-4 py-3">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ estadoBadgeCls(c.estado) }}">
+                        {{ c.estado }}
+                      </span>
+                    </td>
+
+                    <!-- Ver detalle -->
+                    <td class="px-3 sm:px-4 py-3 text-center">
+                      <button
+                        (click)="verDetalle(c)"
+                        title="Ver detalle y abonos"
+                        class="inline-flex items-center gap-1 px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-semibold
+                               border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors">
+                        <lucide-icon name="eye" [size]="14" class="shrink-0"></lucide-icon>
+                        Ver
+                      </button>
+                    </td>
+
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- ── Detalle de factura ─────────────────────────────────────────────── -->
+    @if (selectedId()) {
+      <div id="cxc-detalle" class="min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+
+        <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
+          <h2 class="text-sm font-bold text-slate-900">Detalle de factura</h2>
+          <button (click)="cerrarDetalle()" title="Cerrar detalle"
+                  class="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors">
+            <lucide-icon name="x" [size]="16"></lucide-icon>
+          </button>
+        </div>
+
+        @if (loadingDetalle()) {
+          <div class="p-10 flex flex-col items-center gap-3">
+            <svg class="w-6 h-6 text-indigo-400 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            <p class="text-sm text-slate-500">Cargando detalle…</p>
+          </div>
+        }
+
+        @if (!loadingDetalle() && detalleError()) {
+          <p id="detalle-error" class="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 m-4">{{ detalleError() }}</p>
+        }
+
+        @if (detalle(); as d) {
+          <div class="p-5 space-y-4">
+
+            <!-- Resumen -->
+            <div>
+              <p class="font-semibold text-slate-800 leading-tight">{{ d.nombreReceptor ?? '—' }}</p>
+              <p class="font-mono text-xs text-slate-400">{{ d.rfcReceptor }}</p>
+              <p class="text-xs text-slate-500 mt-1">
+                {{ serieFolio(d) }} · {{ formatDate(d.fechaEmision) }}
+              </p>
+              @if (d.uuid) {
+                <p class="font-mono text-xs text-slate-500 mt-1 break-all select-all">{{ d.uuid }}</p>
+              }
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div class="rounded-xl bg-slate-50 px-3 py-2">
+                <p class="text-xs text-slate-500">Total</p>
+                <p class="text-sm font-semibold text-slate-800">{{ formatCurrency(d.total) }}</p>
+              </div>
+              <div class="rounded-xl bg-slate-50 px-3 py-2">
+                <p class="text-xs text-slate-500">Saldo pendiente</p>
+                <p id="detalle-saldo" class="text-sm font-semibold text-slate-800">{{ formatCurrency(d.saldoPendiente) }}</p>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-3">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold {{ estadoBadgeCls(d.estado) }}">
+                {{ d.estado }}
+              </span>
+              <span class="text-xs text-slate-500">
+                {{ d.numParcialidades }} parcialidad{{ d.numParcialidades !== 1 ? 'es' : '' }}
+              </span>
+            </div>
+
+            @if (abonoOk()) {
+              <p id="abono-ok" class="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">Abono registrado.</p>
+            }
+
+            <!-- Abonos -->
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Abonos</p>
+
+              @if (d.abonos.length === 0) {
+                <p id="abonos-vacio" class="text-xs text-slate-400">Aún no hay abonos registrados.</p>
+              } @else {
+                <div class="overflow-auto max-h-64 rounded-xl border border-slate-200">
+                  <table class="w-full text-sm">
+                    <thead class="sticky top-0">
+                      <tr class="bg-slate-50 border-b border-slate-200">
+                        <th class="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Fecha de pago</th>
+                        <th class="text-right px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Monto</th>
+                        <th class="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Forma de pago</th>
+                        <th class="text-left px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">UUID REP</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (a of d.abonos; track a.id) {
+                        <tr class="border-b border-slate-100 last:border-b-0">
+                          <td class="px-3 py-2 text-xs text-slate-600 whitespace-nowrap">{{ formatDate(a.fechaPago) }}</td>
+                          <td class="px-3 py-2 text-right text-xs font-semibold text-slate-800 whitespace-nowrap">{{ formatCurrency(a.monto) }}</td>
+                          <td class="px-3 py-2 text-xs text-slate-600 whitespace-nowrap">{{ formaPagoLabel(a.formaPago) }}</td>
+                          <td class="px-3 py-2">
+                            @if (a.uuidRep) {
+                              <span class="font-mono text-xs text-slate-700 select-all" title="{{ a.uuidRep }}">
+                                {{ a.uuidRep.substring(0, 8) }}…
+                              </span>
+                            } @else {
+                              <span class="text-slate-400 text-xs">—</span>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+
+            <!-- Registrar abono -->
+            @if (d.estado === 'Pendiente' && !showAbonoForm()) {
+              <button
+                id="btn-abrir-abono"
+                (click)="openAbonoForm()"
+                class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
+                       w-full sm:w-auto bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+                <lucide-icon name="plus" [size]="16"></lucide-icon>
+                Registrar abono
+              </button>
+            }
+
+            @if (showAbonoForm()) {
+              <div id="form-abono" class="rounded-xl border border-slate-200 p-4 space-y-3">
+                <p class="text-sm font-semibold text-slate-800">Registrar abono</p>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">Fecha de pago *</label>
+                  <input
+                    id="abono-fecha"
+                    type="date"
+                    [value]="form().fechaPago"
+                    (input)="updateField('fechaPago', $event)"
+                    [disabled]="saving()"
+                    class="field"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">Monto *</label>
+                  <input
+                    id="abono-monto"
+                    type="number"
+                    inputmode="decimal"
+                    min="0.01"
+                    step="0.01"
+                    [value]="form().monto"
+                    (input)="updateField('monto', $event)"
+                    [disabled]="saving()"
+                    placeholder="0.00"
+                    class="field"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">Forma de pago *</label>
+                  <select
+                    id="abono-forma-pago"
+                    [value]="form().formaPago"
+                    (change)="updateField('formaPago', $event)"
+                    [disabled]="saving()"
+                    class="field">
+                    @for (fp of formasPago; track fp.clave) {
+                      <option [value]="fp.clave">{{ fp.descripcion }}</option>
+                    }
+                  </select>
+                </div>
+
+                @if (abonoError(); as err) {
+                  <div id="abono-error" class="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">
+                    <p>{{ err.message }}</p>
+                    @if (err.details.length > 0) {
+                      <ul class="list-disc list-inside mt-1 space-y-0.5">
+                        @for (detail of err.details; track detail) {
+                          <li>{{ detail }}</li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                }
+
+                <div class="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+                  <button
+                    (click)="closeAbonoForm()"
+                    [disabled]="saving()"
+                    class="w-full sm:w-auto px-4 py-2 rounded-lg text-sm font-medium border border-slate-200
+                           text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors">
+                    Cancelar
+                  </button>
+                  <button
+                    id="btn-guardar-abono"
+                    (click)="registrarAbono()"
+                    [disabled]="saving()"
+                    class="w-full sm:w-auto px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white
+                           hover:bg-indigo-700 disabled:opacity-50 transition-colors inline-flex items-center justify-center gap-2">
+                    @if (saving()) {
+                      <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                    }
+                    {{ saving() ? 'Guardando...' : 'Guardar abono' }}
+                  </button>
+                </div>
+              </div>
+            }
+
+          </div>
+        }
+      </div>
+    }
+
+  </div>
+</div>

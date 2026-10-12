@@ -58,6 +58,11 @@ export const routes: Routes = [
           import('./components/timbrados/timbrados.component').then(m => m.TimbradosComponent),
       },
       {
+        path: 'cuentas-por-cobrar',
+        loadComponent: () =>
+          import('./components/cuentas-por-cobrar/cuentas-por-cobrar.component').then(m => m.CuentasPorCobrarComponent),
+      },
+      {
         path: 'cambiar-password',
         loadComponent: () =>
           import('./components/cambiar-password/cambiar-password.component').then(m => m.CambiarPasswordComponent),

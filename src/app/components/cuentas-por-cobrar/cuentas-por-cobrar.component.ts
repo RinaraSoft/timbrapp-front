@@ -145,11 +145,29 @@ export class CuentasPorCobrarComponent implements OnInit {
       this.abonoError.set({ message: 'Completa fecha de pago, monto y forma de pago.', details: [] });
       return;
     }
-    if (isNaN(monto) || monto <= 0) {
+    // Comparación lexicográfica: ambas fechas van en yyyy-MM-dd.
+    if (f.fechaPago > this.hoy()) {
+      this.abonoError.set({ message: 'La fecha de pago no puede ser futura.', details: [] });
+      return;
+    }
+    if (f.fechaPago < this.fechaMinAbono(d)) {
+      this.abonoError.set({
+        message: `La fecha de pago no puede ser anterior a la emisión de la factura (${this.formatDate(d.fechaEmision)}).`,
+        details: [],
+      });
+      return;
+    }
+    // El REP se timbra con importes a dos decimales.
+    if (!/^\d+(\.\d{1,2})?$/.test(f.monto.trim())) {
+      this.abonoError.set({ message: 'Captura un monto válido con máximo dos decimales.', details: [] });
+      return;
+    }
+    if (monto <= 0) {
       this.abonoError.set({ message: 'El monto debe ser mayor a cero.', details: [] });
       return;
     }
-    if (monto > d.saldoPendiente) {
+    // En centavos para no depender de la precisión de punto flotante.
+    if (Math.round(monto * 100) > Math.round(d.saldoPendiente * 100)) {
       this.abonoError.set({
         message: `El monto no puede exceder el saldo pendiente (${this.formatCurrency(d.saldoPendiente)}).`,
         details: [],
@@ -161,7 +179,7 @@ export class CuentasPorCobrarComponent implements OnInit {
     this.abonoError.set(null);
 
     this.cxcService.registrarAbono(d.id, {
-      fechaPago: new Date(`${f.fechaPago}T12:00:00`).toISOString(),
+      fechaPago: `${f.fechaPago}T12:00:00`,
       monto,
       formaPago: f.formaPago,
     }).subscribe({
@@ -211,14 +229,20 @@ export class CuentasPorCobrarComponent implements OnInit {
   }
 
   formaPagoLabel(clave: string): string {
-    return this.formasPago.find(fp => fp.clave === clave)?.descripcion ?? clave;
+    const fp = this.formasPago.find(x => x.clave === clave);
+    return fp ? `${fp.clave} — ${fp.desc}` : clave;
   }
 
   onReceptorInput(e: Event) { this.filterReceptor.set((e.target as HTMLSelectElement).value); }
   onEstadoInput(e: Event)   { this.filterEstado.set((e.target as HTMLSelectElement).value);   }
 
-  private hoy(): string {
-    const d = new Date();
+  /** Fecha local de hoy en yyyy-MM-dd — tope máximo de la fecha de pago. */
+  hoy(): string { return this.toFechaLocal(new Date()); }
+
+  /** Fecha local de emisión en yyyy-MM-dd — tope mínimo de la fecha de pago. */
+  fechaMinAbono(c: CuentaPorCobrarDto): string { return this.toFechaLocal(new Date(c.fechaEmision)); }
+
+  private toFechaLocal(d: Date): string {
     const p = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
   }

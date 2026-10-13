@@ -1,3 +1,10 @@
+import { FORMAS_PAGO } from './forma-pago.models';
+
+// Contrato provisional: el back aún no expone CxC. Pendiente de definir con
+// producto el timbrado del REP al registrar un abono (automático o no, consumo
+// de timbre, qué pasa si falla) y que solo entren facturas PPD vigentes; lo que
+// se decida cambia AbonoDto y el response de registrarAbono.
+
 // ── Enums (string) ───────────────────────────────────────────────────────────
 
 /** Estado de la cuenta por cobrar — el backend lo serializa como string. */
@@ -39,7 +46,9 @@ export interface CuentaPorCobrarDetalleDto extends CuentaPorCobrarDto {
 // ── Request ─────────────────────────────────────────────────────────────────
 
 export interface RegistrarAbonoRequest {
-  fechaPago: string;             // ISO-8601
+  /** Fecha local sin zona (yyyy-MM-ddTHH:mm:ss), como la usa el SAT — sin conversión a UTC */
+  fechaPago: string;
+  /** Importe a dos decimales */
   monto:     number;
   formaPago: string;
 }
@@ -57,10 +66,5 @@ export const ESTADOS_CXC: { clave: EstadoCuentaPorCobrar; descripcion: string }[
   { clave: 'Liquidada', descripcion: 'Liquidada' },
 ];
 
-export const FORMAS_PAGO_ABONO: { clave: string; descripcion: string }[] = [
-  { clave: '01', descripcion: '01 - Efectivo' },
-  { clave: '02', descripcion: '02 - Cheque nominativo' },
-  { clave: '03', descripcion: '03 - Transferencia electrónica' },
-  { clave: '04', descripcion: '04 - Tarjeta de crédito' },
-  { clave: '28', descripcion: '28 - Tarjeta de débito' },
-];
+/** Formas de pago válidas para un abono — '99' (por definir) no aplica a un pago ya recibido. */
+export const FORMAS_PAGO_ABONO = FORMAS_PAGO.filter(fp => fp.clave !== '99');

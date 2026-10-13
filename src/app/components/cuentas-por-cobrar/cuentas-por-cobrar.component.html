@@ -343,6 +343,8 @@
                   <input
                     id="abono-fecha"
                     type="date"
+                    [min]="fechaMinAbono(d)"
+                    [max]="hoy()"
                     [value]="form().fechaPago"
                     (input)="updateField('fechaPago', $event)"
                     [disabled]="saving()"
@@ -375,7 +377,7 @@
                     [disabled]="saving()"
                     class="field">
                     @for (fp of formasPago; track fp.clave) {
-                      <option [value]="fp.clave">{{ fp.descripcion }}</option>
+                      <option [value]="fp.clave">{{ fp.clave }} — {{ fp.desc }}</option>
                     }
                   </select>
                 </div>

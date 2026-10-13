@@ -143,7 +143,7 @@ describe('CuentasPorCobrarComponent', () => {
     expect(abonos.length).toBe(1);
     expect(abonos[0].textContent).toContain(component.formatDate('2026-09-10T12:00:00Z'));
     expect(abonos[0].textContent).toContain(component.formatCurrency(400));
-    expect(abonos[0].textContent).toContain('03 - Transferencia electrónica');
+    expect(abonos[0].textContent).toContain('03 — Transferencia electrónica');
     expect(abonos[0].textContent).toContain('99999999');
   });
 
@@ -163,12 +163,12 @@ describe('CuentasPorCobrarComponent', () => {
 
   // ── Registrar abono ────────────────────────────────────────────────────────
 
-  function llenarAbono(monto: string): void {
+  function llenarAbono(monto: string, fechaPago = '2026-10-01'): void {
     el.querySelector<HTMLButtonElement>('#btn-abrir-abono')!.click();
     fixture.detectChanges();
 
     const fecha = el.querySelector<HTMLInputElement>('#abono-fecha')!;
-    fecha.value = '2026-10-01';
+    fecha.value = fechaPago;
     fecha.dispatchEvent(new Event('input'));
     const input = el.querySelector<HTMLInputElement>('#abono-monto')!;
     input.value = monto;
@@ -190,7 +190,7 @@ describe('CuentasPorCobrarComponent', () => {
     expect(req.request.method).toBe('POST');
     expect(req.request.body.monto).toBe(600);
     expect(req.request.body.formaPago).toBe('01');
-    expect(req.request.body.fechaPago).toBe(new Date('2026-10-01T12:00:00').toISOString());
+    expect(req.request.body.fechaPago).toBe('2026-10-01T12:00:00');
 
     req.flush({
       ...DETALLE,
@@ -221,6 +221,54 @@ describe('CuentasPorCobrarComponent', () => {
     expect(el.querySelector('#abono-error')?.textContent).toContain('saldo pendiente');
   });
 
+  it('rechaza montos con más de dos decimales', () => {
+    init();
+    abrirDetalle();
+    llenarAbono('100.005');
+
+    http.expectNone(`${API}/api/cxc/c-1/abonos`);
+    expect(el.querySelector('#abono-error')?.textContent).toContain('máximo dos decimales');
+  });
+
+  it('acepta un abono por el saldo exacto aunque el saldo arrastre error de punto flotante', () => {
+    init();
+    abrirDetalle({ ...DETALLE, saldoPendiente: 0.3 - 0.1 });   // 0.19999999999999998
+    llenarAbono('0.20');
+
+    const req = http.expectOne(`${API}/api/cxc/c-1/abonos`);
+    expect(req.request.body.monto).toBe(0.2);
+    req.flush({ ...DETALLE, saldoPendiente: 0, estado: 'Liquidada' });
+  });
+
+  it('limita la fecha de pago entre la emisión de la factura y hoy', () => {
+    init();
+    abrirDetalle();
+    el.querySelector<HTMLButtonElement>('#btn-abrir-abono')!.click();
+    fixture.detectChanges();
+
+    const fecha = el.querySelector<HTMLInputElement>('#abono-fecha')!;
+    expect(fecha.min).toBe(component.fechaMinAbono(DETALLE));
+    expect(fecha.max).toBe(component.hoy());
+  });
+
+  it('rechaza una fecha de pago futura', () => {
+    init();
+    abrirDetalle();
+    llenarAbono('100', '2999-01-01');
+
+    http.expectNone(`${API}/api/cxc/c-1/abonos`);
+    expect(el.querySelector('#abono-error')?.textContent).toContain('no puede ser futura');
+  });
+
+  it('rechaza una fecha de pago anterior a la emisión de la factura', () => {
+    init();
+    abrirDetalle();
+    llenarAbono('100', '2026-08-01');
+
+    http.expectNone(`${API}/api/cxc/c-1/abonos`);
+    expect(el.querySelector('#abono-error')?.textContent).toContain('anterior a la emisión');
+  });
+
   it('muestra los errores de la API normalizados (ModelState)', () => {
     init();
     abrirDetalle();
@@ -236,6 +284,6 @@ describe('CuentasPorCobrarComponent', () => {
     expect(error.textContent).toContain('La solicitud no es válida.');
     expect(error.textContent).toContain('Monto: El monto excede el saldo.');
     expect(el.querySelector('#form-abono')).not.toBeNull();
-    expect(component.saving()).toBeFalse();
+    expect(component.saving()).toBe(false);
   });
 });

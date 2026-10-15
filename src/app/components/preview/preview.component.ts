@@ -7,6 +7,7 @@ import { LicenciaDto, LicenciaService } from '../../services/licencia.service';
 import { ConceptosTableComponent } from '../conceptos-table/conceptos-table.component';
 import { ConceptosEditModalComponent } from '../conceptos-edit-modal/conceptos-edit-modal.component';
 import { ColumnDef } from '../../models/table-column.models';
+import { FORMAS_PAGO } from '../../models/forma-pago.models';
 
 /** Column set for tipoDeComprobante I/E — reused by ConceptosTableComponent. */
 const CONCEPTO_COLUMNS: ColumnDef[] = [
@@ -31,15 +32,6 @@ const DOCTO_PAGO_COLUMNS: ColumnDef[] = [
 ];
 
 type IvaRate = '16' | '8' | '0';
-
-const FORMAS_PAGO = [
-  { clave: '01', desc: 'Efectivo' },
-  { clave: '02', desc: 'Cheque nominativo' },
-  { clave: '03', desc: 'Transferencia electrónica' },
-  { clave: '04', desc: 'Tarjeta de crédito' },
-  { clave: '28', desc: 'Tarjeta de débito' },
-  { clave: '99', desc: 'Por definir' },
-];
 
 const TIPOS_RELACION = [
   { clave: '01', desc: 'Nota de crédito de los documentos relacionados' },

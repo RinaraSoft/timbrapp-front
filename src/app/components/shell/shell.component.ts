@@ -30,6 +30,7 @@ export class ShellComponent implements OnInit {
     { label: 'Clientes',       route: '/clientes',      icon: 'users'        },
     { label: 'Certificados',   route: '/certificados',  icon: 'shield-check' },
     { label: 'Timbrados',      route: '/timbrados',     icon: 'receipt-text' },
+    { label: 'Cuentas por cobrar', route: '/cuentas-por-cobrar', icon: 'wallet' },
   ];
 
   userName = computed(() => {

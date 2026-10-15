@@ -30,6 +30,11 @@ import {
   UserCog,
   HelpCircle,
   ListChecks,
+  Wallet,
+  RefreshCw,
+  Funnel,
+  Plus,
+  Eye,
 } from 'lucide-angular';
 
 import { routes } from './app.routes';
@@ -66,6 +71,11 @@ export const appConfig: ApplicationConfig = {
         UserCog,
         HelpCircle,
         ListChecks,
+        Wallet,
+        RefreshCw,
+        Funnel,
+        Plus,
+        Eye,
       })
     ),
   ],
